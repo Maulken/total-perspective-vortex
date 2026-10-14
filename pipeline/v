@@ -1,0 +1,51 @@
+"""
+pipeline/build_pipeline.py
+
+Factory centralisant la construction du pipeline sklearn.
+
+C'est le point unique d'intégration : pour l'instant, seul le CSP de
+référence (MNE) est disponible via reducer_method="csp_reference".
+L'étape suivante ajoutera reducer_method="csp_custom" pour brancher
+votre implémentation maison, sans modifier le reste du code appelant.
+"""
+
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.pipeline import Pipeline
+
+from dimensionality_reduction.csp_reference import get_reference_csp
+from dimensionality_reduction.csp_custom import CSPCustom
+
+
+def get_classifier(method: str = "lda"):
+    if method == "lda":
+        return LinearDiscriminantAnalysis()
+    raise ValueError(f"Classifieur inconnu : {method}")
+
+
+def get_reducer(method: str = "csp_reference", n_components: int = 4):
+    if method == "csp_reference":
+        return get_reference_csp(n_components=n_components)
+    elif method == "csp_custom":
+        return CSPCustom(n_components=n_components)
+    raise ValueError(f"Méthode de réduction inconnue : {method}")
+
+
+def build_pipeline(
+    reducer_method: str = "csp_reference",
+    classifier_method: str = "lda",
+    n_components: int = 4,
+) -> Pipeline:
+    """
+    Assemble le pipeline complet : réduction de dimensionnalité + classification.
+
+    Prend en entrée des epochs brutes filtrées (n_epochs, n_channels, n_times),
+    PAS des features Fourier déjà extraites : le CSP calcule lui-même ses
+    propres features (log-variance des composantes projetées).
+    """
+    reducer = get_reducer(reducer_method, n_components=n_components)
+    classifier = get_classifier(classifier_method)
+
+    return Pipeline([
+        ("reducer", reducer),
+        ("clf", classifier),
+    ])
